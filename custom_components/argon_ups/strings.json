@@ -1,0 +1,21 @@
+{
+  "title": "Argon UPS",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect your Argon UPS",
+        "description": "Enter the serial device path visible to Home Assistant Core. Prefer /dev/serial/by-id/. Stop other software using this port first. On Raspberry Pi 5, missing UPS USB detection may require a manual boot setting (dtoverlay=dwc2,dr_mode=host). See the installation guide; this integration cannot read or change HAOS boot settings.",
+        "data": {"port": "Serial device path"}
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not read a valid UPS status. Check the device path, permissions, USB connection and exclusive port access.",
+      "invalid_port": "Enter a local serial device path, not a network URL."
+    },
+    "abort": {"already_configured": "This serial device is already configured."}
+  },
+  "entity": {
+    "sensor": {"battery": {"name": "Battery"}},
+    "binary_sensor": {"on_battery": {"name": "On battery"}}
+  }
+}
