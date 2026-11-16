@@ -1,12 +1,12 @@
 {
   "domain": "argon_ups",
   "name": "Argon UPS",
+  "categories": ["energy.backup_power"],
   "codeowners": ["@rpmlourenco"],
   "config_flow": true,
   "documentation": "https://github.com/rpmlourenco/ArgonUPS",
   "integration_type": "device",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/rpmlourenco/ArgonUPS/issues",
-  "requirements": ["pyserial==3.5"],
   "version": "0.1.0"
 }
