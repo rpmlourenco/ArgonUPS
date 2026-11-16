@@ -7,8 +7,9 @@ A community Home Assistant custom integration for the **Argon PWR UPS 27W
 the Home Assistant UI. No MQTT, add-on, Argon daemon or Raspberry Pi OS packages
 are required.
 
-**Experimental: protocol verified against official source code; physical
-communication and power transitions have not been tested on a real UPS.**
+**Experimental: protocol verified against official source code, with an initial
+live status reading confirmed by the user. Power transitions, physical shutdown
+and power recovery remain untested.**
 USB enumeration alone does not validate the protocol or serial access from Core.
 This project is not affiliated with or endorsed by Argon40.
 
@@ -216,8 +217,14 @@ configuration, acknowledgement, shutdown or power-control commands are sent.
 
 ## Limitations and troubleshooting
 
-- No physical validation yet, no runtime estimate, voltage/current, shutdown
-  service, low-battery cutoff, RTC controls or automatic shutdown automation.
+An optional [safe host shutdown blueprint](docs/SAFE-SHUTDOWN.md) is available
+for HAOS/Supervised with Argon UPS 0.3.0 or newer. Proposed starting values are
+30% battery, 30 seconds continuous confirmation, and a maximum telemetry age of
+30 seconds. Shutdown is disabled until explicitly armed in its inputs; the
+integration does not install or enable the automation for you.
+
+- No runtime estimate, voltage/current, UPS power-control service, low-battery
+  cutoff or RTC controls. Physical shutdown and power recovery remain untested.
 - The 10-second polling interval plus response timeout means this is not an
   instantaneous mains-failure alarm. Do not rely on this experimental integration
   as the sole protection against data loss or power failure.

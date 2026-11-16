@@ -23,7 +23,9 @@ class ArgonUPSCoordinator(DataUpdateCoordinator[UPSStatus]):
             config_entry=entry,
             name=NAME,
             update_interval=timedelta(seconds=POLL_INTERVAL_SECONDS),
-            always_update=False,
+            # Publish successful polls even when values are unchanged so that
+            # last_reported can be used to reject stale safety telemetry.
+            always_update=True,
         )
         self.client = ArgonUPSClient(entry.data["port"])
 

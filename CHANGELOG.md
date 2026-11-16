@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0
+
+- Publish every successful poll even when values stay unchanged, allowing
+  safety automations to use both entities' `last_reported` timestamps.
+- Add an optional safe-host-shutdown blueprint with proposed 30%/30s/30s
+  settings, explicit arming, continuous confirmation and a final telemetry guard.
+- Add regression tests for unchanged poll timestamps and shutdown guard failures.
+
+The blueprint is not installed or enabled automatically. Hardware shutdown and
+power recovery remain untested.
+
 ## 0.2.0
 
 - Add Home Assistant USB discovery, restricted by VID/PID, manufacturer and

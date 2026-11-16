@@ -1,0 +1,113 @@
+blueprint:
+  name: Argon UPS - Safe host shutdown on low battery
+  description: >-
+    Requires Argon UPS 0.3.0 or newer and HAOS/Supervised. Select the battery
+    and on-battery entities belonging to the UPS that powers this host.
+    Shuts down this entire host only after low battery and battery operation
+    remain confirmed, with fresh valid telemetry. Proposed initial settings:
+    30 percent, 30 seconds confirmation, 30 seconds maximum report age.
+    Shutdown is disabled by default: verify report freshness and power
+    transitions before enabling the Allow host shutdown input. Never test
+    using Run actions or by invoking the shutdown service.
+    This does not control UPS output or guarantee automatic power-on afterwards.
+  domain: automation
+  homeassistant:
+    min_version: "2026.3.0"
+  input:
+    shutdown_enabled:
+      name: Allow host shutdown
+      description: Enable only after verifying this host, both sensors and telemetry freshness.
+      default: false
+      selector:
+        boolean: {}
+    battery_entity:
+      name: Battery percentage
+      description: Select the battery sensor from this host's Argon UPS device.
+      selector:
+        entity:
+          filter:
+            - integration: argon_ups
+              domain: sensor
+              device_class: battery
+    on_battery_entity:
+      name: On battery
+      description: Select the on-battery sensor from the same Argon UPS device.
+      selector:
+        entity:
+          filter:
+            - integration: argon_ups
+              domain: binary_sensor
+    shutdown_threshold:
+      name: Shutdown threshold
+      description: Initial proposal; remaining runtime at this level is unmeasured.
+      default: 30
+      selector:
+        number:
+          min: 10
+          max: 50
+          step: 1
+          unit_of_measurement: "%"
+          mode: box
+    confirmation_seconds:
+      name: Continuous confirmation
+      default: 30
+      selector:
+        number:
+          min: 10
+          max: 120
+          step: 1
+          unit_of_measurement: s
+          mode: box
+    max_age_seconds:
+      name: Maximum telemetry age
+      description: Applies to both entities; normal polling is every 10 seconds.
+      default: 30
+      selector:
+        number:
+          min: 15
+          max: 60
+          step: 1
+          unit_of_measurement: s
+          mode: box
+
+variables: &argon_shutdown_settings
+  shutdown_enabled: !input shutdown_enabled
+  battery_entity: !input battery_entity
+  on_battery_entity: !input on_battery_entity
+  shutdown_threshold: !input shutdown_threshold
+  max_age_seconds: !input max_age_seconds
+trigger_variables: *argon_shutdown_settings
+triggers:
+  - trigger: template
+    id: confirmed_low_battery
+    value_template: &argon_shutdown_guard >-
+      {% set battery = states(battery_entity) | float(none) %}
+      {% set fresh = namespace(ok=true) %}
+      {% for entity_id in [battery_entity, on_battery_entity] %}
+        {% set entity = states[entity_id] %}
+        {% set age = as_timestamp(now()) - as_timestamp(entity.last_reported, 0)
+           if entity is defined and entity is not none else -1 %}
+        {% if not 0 <= age <= max_age_seconds | float(0) %}
+          {% set fresh.ok = false %}
+        {% endif %}
+      {% endfor %}
+      {{ shutdown_enabled is sameas true and fresh.ok
+         and device_id(battery_entity) is not none
+         and device_id(battery_entity) == device_id(on_battery_entity)
+         and is_number(states(battery_entity))
+         and battery is not none and 0 <= battery <= shutdown_threshold | float(-1)
+         and is_state(on_battery_entity, 'on') }}
+    for:
+      seconds: !input confirmation_seconds
+conditions: []
+actions:
+  # An ordinary manual Run actions must not power off the host.
+  - condition: trigger
+    id: confirmed_low_battery
+  # Evaluate current values again instead of trusting the original trigger.
+  - condition: template
+    value_template: *argon_shutdown_guard
+  - action: hassio.host_shutdown
+    data: {}
+mode: single
+max_exceeded: silent

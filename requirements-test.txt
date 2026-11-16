@@ -4,3 +4,5 @@ aiousbwatcher==1.1.2
 serialx==1.11.0
 pyserial==3.5
 ruff==0.17.5
+PyYAML==6.0.3
+Jinja2==3.1.6
