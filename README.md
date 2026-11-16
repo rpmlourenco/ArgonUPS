@@ -81,7 +81,9 @@ privileged host component; that is outside this integration's scope.
    `https://github.com/rpmlourenco/ArgonUPS` as type **Integration**.
 2. Download **Argon UPS**.
 3. Restart Home Assistant yourself when ready to load the new integration.
-4. Go to **Settings → Devices & services → Add integration → Argon UPS**.
+4. Go to **Settings → Devices & services**. If the UPS appears under
+   **Discovered**, select **Configure**. Otherwise select **Add integration →
+   Argon UPS**.
 5. Enter the persistent serial path visible to Core. The path detected on the
    original installation is:
 
@@ -92,8 +94,22 @@ privileged host component; that is outside this integration's scope.
 The form sends one status query to verify communication before saving. For a
 different device, use its own path. The generic form default is `/dev/ttyACM0`;
 prefer `/dev/serial/by-id/` because numbered ports can change after reboot.
-Do not add the same physical port
-through different aliases. Identical path entries are rejected as duplicates.
+The flow resolves numbered ports to their persistent by-id alias when available,
+and rejects entries already configured with that canonical path.
+
+USB discovery matches VID:PID `1D6B:0104`, manufacturer `Argon`, and a product
+description containing `Argon_USB` (case insensitive). Matching only VID:PID
+would also claim unrelated Linux USB gadgets. Discovery offers the normal Home
+Assistant setup card and prefilled port, but sends no serial command until you
+confirm setup. Home Assistant loads the `usb` dependency, and Core must see the
+device. Different firmware metadata may
+require manual setup. Discovery has simulated tests, not physical validation.
+
+Once installed, Argon UPS participates in Home Assistant's normal config-entry,
+device, entity and availability systems. It is still a **custom integration**;
+Home Assistant does not include or download it automatically before HACS/manual
+installation. Inclusion in Home Assistant Core would require a separate upstream
+contribution and review.
 
 HACS compatibility means installation as a custom repository; this project has
 not been submitted to the HACS default repository list.
@@ -188,7 +204,7 @@ supported version is not independently runtime-tested. CI also runs hassfest and
 the HACS validator. Unit tests cover fragmentation at every split, byte-wise
 reads, checksum failure, corruption recovery, echoes, payload lengths, battery
 boundaries, serial errors/timeouts, cleanup and reconnect. Home Assistant tests
-cover configuration, duplicates, both entities, unavailable/recovered states,
+cover configuration, USB discovery, canonical-path duplicates, both entities, unavailable/recovered states,
 initial setup retry and unload.
 
 Before declaring hardware support validated, explicitly authorize installation,

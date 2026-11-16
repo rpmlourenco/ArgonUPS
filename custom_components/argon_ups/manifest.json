@@ -4,9 +4,19 @@
   "categories": ["energy.backup_power"],
   "codeowners": ["@rpmlourenco"],
   "config_flow": true,
+  "dependencies": ["usb"],
   "documentation": "https://github.com/rpmlourenco/ArgonUPS",
   "integration_type": "device",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/rpmlourenco/ArgonUPS/issues",
-  "version": "0.1.0"
+  "usb": [
+    {
+      "vid": "1D6B",
+      "pid": "0104",
+      "manufacturer": "argon",
+      "description": "*argon_usb*",
+      "known_devices": ["Argon PWR UPS 27W 5000mAh"]
+    }
+  ],
+  "version": "0.2.0"
 }

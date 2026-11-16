@@ -1,6 +1,7 @@
 {
   "title": "Argon UPS",
   "config": {
+    "flow_title": "{name}",
     "step": {
       "user": {
         "title": "Connect your Argon UPS",
