@@ -84,8 +84,9 @@ privileged host component; that is outside this integration's scope.
 4. Go to **Settings → Devices & services**. If the UPS appears under
    **Discovered**, select **Configure**. Otherwise select **Add integration →
    Argon UPS**.
-5. Enter the persistent serial path visible to Core. The path detected on the
-   original installation is:
+5. Enter the persistent serial path visible to Core. See
+   [Finding the UPS serial device path](#finding-the-ups-serial-device-path).
+   The path detected on the original installation is:
 
    ```text
    /dev/serial/by-id/usb-Argon_Argon_USB_6B21220CD2C7348A-if00
@@ -113,6 +114,62 @@ contribution and review.
 
 HACS compatibility means installation as a custom repository; this project has
 not been submitted to the HACS default repository list.
+
+## Finding the UPS serial device path
+
+Find the path on the **system running Home Assistant**, not on your Windows PC.
+The serial number belongs to your UPS: do not copy the example unchanged unless
+it matches your own device.
+
+### From the Home Assistant interface
+
+1. Open **Settings → Connectivity → Serial**.
+2. Find the USB device described as **Argon**, **Argon_USB**, or
+   **Argon Argon_USB**. If necessary, select **Refresh**.
+3. Open **Port information** and copy the **Device** field. Prefer a path
+   beginning with `/dev/serial/by-id/`.
+4. Paste the complete path into **Serial device path** in the Argon UPS setup
+   form, then select **Submit**.
+
+On older Home Assistant versions without the Serial panel, look under
+**Settings → System → Hardware → All hardware** (possibly in the three-dot menu).
+Find the Argon serial device and its `/dev/serial/by-id/` entry. If the UI only
+shows a numbered port such as `/dev/ttyACM0`, use the shell method below to find
+its persistent link. See the
+[Home Assistant serial documentation](https://www.home-assistant.io/connectivity/serial/).
+
+### From a shell on the Home Assistant host
+
+If you already have access to a HAOS host shell, list the persistent serial
+links with this read-only command:
+
+```sh
+ls -l /dev/serial/by-id/
+```
+
+Look for an entry containing `Argon_Argon_USB`. For example, a link may look like:
+
+```text
+usb-Argon_Argon_USB_6B21220CD2C7348A-if00 -> ../../ttyACM0
+```
+
+Prefix the link name with `/dev/serial/by-id/`. The value to paste is:
+
+```text
+/dev/serial/by-id/usb-Argon_Argon_USB_6B21220CD2C7348A-if00
+```
+
+Do not paste `-> ../../ttyACM0` or the other columns printed by `ls`. The
+`by-id` path and `/dev/ttyACM0` refer to the same serial interface, but the
+numbered port can change after a reboot or when other USB devices are connected.
+Do not select `/dev/hidraw0`: this integration uses the serial interface.
+
+An SSH/Terminal app may also expose `/dev/serial/by-id/`, but its view of devices
+can differ from Core and the host. If the directory or Argon entry is missing,
+check the host or the Home Assistant interface before concluding that the UPS
+is absent. If neither detects it, check the USB connection and the
+[Raspberry Pi 5 USB host-mode prerequisite](#raspberry-pi-5-missing-usb-detection).
+Listing these links does not open the serial port or send commands to the UPS.
 
 ## Manual installation
 
