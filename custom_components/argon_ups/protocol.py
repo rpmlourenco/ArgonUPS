@@ -1,7 +1,6 @@
 """Incremental decoder for the Argon UPS serial status protocol."""
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from enum import IntEnum
 
 STATUS_REQUEST = bytes.fromhex("fe 00 00 fe")
@@ -14,8 +13,6 @@ class ReadCommand(IntEnum):
     STATUS = 0
     CHARGE_CURRENT = 2
     VERSION = 4
-    RTC = 5
-    NEXT_START = 7
 
 
 DIAGNOSTIC_COMMANDS = tuple(
@@ -37,7 +34,7 @@ class Frame:
 
 @dataclass(frozen=True)
 class DiagnosticReading:
-    value: int | datetime | None
+    value: int
     payload: bytes
 
 
@@ -65,27 +62,7 @@ def decode_diagnostic(command: ReadCommand, payload: bytes) -> DiagnosticReading
         if not payload:
             raise ValueError("Short version payload")
         return DiagnosticReading(payload[0], payload)
-    if command not in (ReadCommand.RTC, ReadCommand.NEXT_START):
-        raise ValueError("Not a diagnostic read command")
-    size = 6 if command == ReadCommand.RTC else 5
-    if len(payload) < size:
-        raise ValueError("Short date payload")
-    # No documented disabled-alarm encoding exists. Preserve these sentinel
-    # patterns as unknown rather than claiming that the alarm is disabled.
-    if command == ReadCommand.NEXT_START and payload[:size] in (
-        bytes(size),
-        b"\xff" * size,
-    ):
-        return DiagnosticReading(None, payload)
-    fields = []
-    for byte in payload[:size]:
-        if byte >> 4 > 9 or byte & 0xF > 9:
-            raise ValueError("Invalid BCD date")
-        fields.append((byte >> 4) * 10 + (byte & 0xF))
-    fields[0] += 2000
-    # Official code converts UTC to local time on display. Never apply the
-    # user's configured timezone to the raw bytes a second time.
-    return DiagnosticReading(datetime(*fields, tzinfo=UTC), payload)
+    raise ValueError("Not a diagnostic read command")
 
 
 class FrameParser:

@@ -1,18 +1,18 @@
-"""Battery percentage sensor."""
+"""Battery, charge current and version sensors."""
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import PERCENTAGE, EntityCategory
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfElectricCurrent
 
 from .entity import ArgonUPSEntity
 from .protocol import ReadCommand
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
-    """Add the battery sensor."""
+    """Add battery and diagnostic sensors."""
     async_add_entities(
         [
             ArgonUPSBattery(entry.runtime_data, entry.entry_id, "battery"),
@@ -21,8 +21,6 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
                 for command, key in (
                     (ReadCommand.CHARGE_CURRENT, "charge_current_raw"),
                     (ReadCommand.VERSION, "ups_version"),
-                    (ReadCommand.RTC, "rtc"),
-                    (ReadCommand.NEXT_START, "next_start"),
                 )
             ),
         ]
@@ -51,8 +49,10 @@ class ArgonUPSDiagnostic(ArgonUPSEntity, SensorEntity):
         super().__init__(coordinator, entry_id, key)
         self.command = command
         self._attr_translation_key = key
-        if command in (ReadCommand.RTC, ReadCommand.NEXT_START):
-            self._attr_device_class = SensorDeviceClass.TIMESTAMP
+        if command == ReadCommand.CHARGE_CURRENT:
+            self._attr_device_class = SensorDeviceClass.CURRENT
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_native_unit_of_measurement = UnitOfElectricCurrent.MILLIAMPERE
 
     @property
     def available(self) -> bool:
@@ -73,13 +73,9 @@ class ArgonUPSDiagnostic(ArgonUPSEntity, SensorEntity):
         if reading is None:
             return attributes
         attributes["raw_payload"] = reading.payload.hex(" ")
-        if self.command in (ReadCommand.RTC, ReadCommand.NEXT_START):
-            attributes["time_interpretation"] = "UTC following official reader"
-            if reading.value is None:
-                attributes["interpretation"] = "unset_or_undocumented_alarm_encoding"
-        elif self.command == ReadCommand.CHARGE_CURRENT:
+        if self.command == ReadCommand.CHARGE_CURRENT:
             attributes["interpretation"] = (
-                "unsigned 16-bit big-endian; unit and scale unverified"
+                "unsigned 16-bit big-endian; assumed milliamps, not calibrated"
             )
-            attributes["unit_status"] = "unverified"
+            attributes["unit_status"] = "assumed"
         return attributes

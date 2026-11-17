@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.0
+
+- Remove RTC and next scheduled start sensors, decoders and serial queries.
+- Remove the two retired entity registry entries on successful integration setup.
+- Display charge current in mA with current device class and measurement state
+  class. The unit is assumed at the user's request, not independently calibrated;
+  the entity retains `unit_status: assumed` and its existing unique/entity IDs.
+- Rename the displayed sensor to Charge current and retain raw payload evidence.
+- Document the read-only protocol investigation and its limits.
+
+Published without running tests at the user's request. Updating does not install
+or restart Home Assistant automatically. Restart Home Assistant after updating.
+
 ## 0.4.1
 
 - Preserve the failure reason, bounded raw response, rejected payload and query

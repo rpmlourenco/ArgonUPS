@@ -3,7 +3,9 @@
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 
+from .const import DOMAIN
 from .coordinator import ArgonUPSCoordinator
 
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR]
@@ -16,6 +18,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ArgonUPSConfigEntry) -> 
     try:
         await coordinator.async_config_entry_first_refresh()
         entry.runtime_data = coordinator
+        registry = er.async_get(hass)
+        for key in ("rtc", "next_start"):
+            entity_id = registry.async_get_entity_id(
+                "sensor", DOMAIN, f"{entry.entry_id}_{key}"
+            )
+            if entity_id is not None:
+                registered = registry.async_get(entity_id)
+                if registered is not None and registered.config_entry_id == entry.entry_id:
+                    registry.async_remove(entity_id)
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     except BaseException:
         await coordinator.async_shutdown()

@@ -20,8 +20,9 @@ This project is not affiliated with or endorsed by Argon40.
 | Battery | UPS-reported battery percentage, 0–100%, measurement sensor |
 | On battery | `on`: battery power; `off`: external power |
 
-Both entities belong to one device and share one poll every 10 seconds. A poll
-sends only the status request. Replies are checked for framing, payload length,
+Both entities belong to one device and share one poll every 10 seconds. Each
+poll requests status first, then one optional diagnostic. Replies are checked
+for framing, payload length,
 checksum and battery range. Fragmented replies and leading noise are supported.
 Out-of-range percentages are rejected instead of silently clamped.
 
@@ -31,57 +32,61 @@ poll; the previous values must not be treated as live readings. The serial
 connection closes on failure and the next poll reconnects. Startup failures use
 Home Assistant's automatic setup retry. Unloading releases the port.
 
-### Additional read-only diagnostics (0.4.0)
+### Additional read-only diagnostics
 
 | Diagnostic sensor | Interpretation |
 | --- | --- |
 | UPS version | Raw version byte returned by command `0x04`; this is not the integration version |
-| UPS clock | RTC date/time from command `0x05`, interpreted as UTC following the official reader |
-| Next scheduled start | Alarm date/time from command `0x07`, interpreted as UTC; not an estimate of remaining battery runtime |
-| Charge current (raw) | Unsigned 16-bit big-endian value from command `0x02`, without a unit because the scale is unverified |
+| Charge current | Unsigned 16-bit big-endian value from command `0x02`, displayed in mA with an assumed scale |
 
-All four are diagnostic entities on the same UPS device. Date sensors are
-displayed in the Home Assistant frontend's timezone. The integration never
-sets the RTC, programs a start time or resets the battery meter. An alarm in
-the past is shown as returned; it does not establish that an upcoming wake is
-armed. All-zero/all-`FF` alarm payloads are shown as unknown, with raw bytes
-retained, because their exact disabled/invalid meaning has not been verified.
-Malformed dates are rejected instead of inventing a timestamp.
+Both are diagnostic entities on the same UPS device. Since 0.5.0, RTC and next
+scheduled start are no longer queried or exposed. Their old registry entries
+are removed on successful integration setup, including user-renamed entities.
+The integration never sets the RTC, programs a start time or resets the battery
+meter. Battery, power-source and current entity IDs are preserved; the current
+entity keeps its historical `_charge_current_raw` ID while its displayed name
+becomes **Charge current**.
 
 One diagnostic is queried after each successful battery/power poll, rotating
-through the four commands. Each diagnostic normally refreshes roughly every
-40 seconds; response delays can lengthen that interval. There is only one
+through the two diagnostic commands. Each diagnostic normally refreshes roughly
+every 20 seconds; response delays can lengthen that interval. There is only one
 serial client. Each optional transaction has a bounded timeout, and its failure
 makes only that diagnostic unavailable. A failure of the main status query
 makes all entities unavailable and clears cached diagnostics. Recovery of each
 diagnostic waits for its own next successful query. Unsupported optional
 queries do not force reopening an otherwise healthy serial connection.
 
-**The 0.4.0 changes are published without executing the updated tests at the
-user's request. No physical validation of these additional queries has been
-completed.** Unit/scaling, RTC accuracy/timezone behavior and alarm semantics
-still require confirmation on the actual firmware. The shutdown blueprint
-continues to use only battery percentage and on-battery status.
+**The 0.5.0 changes are published without running tests at the user's request.**
+Charge-current changes have been observed on the user's device, but the unit
+and measurement point have not been independently validated. The shutdown
+blueprint continues to use only battery percentage and on-battery status.
 
 Version 0.4.1 exposes `read_command`, `query_status`, `last_query_time` and,
 on failure, `last_error` and up to 512 received bytes in `raw_response`.
 Checksum-valid payloads rejected by the decoder are retained in `raw_payload`.
-These attributes remain available even when the sensor is unavailable. A query
-status of `no_response` means no bytes arrived; `no_matching_valid_response`
+Warnings also retain failure evidence when Home Assistant omits attributes from
+an unavailable entity. A query status of `no_response` means no bytes arrived; `no_matching_valid_response`
 can mean an echo, another command, incomplete framing or a bad checksum;
 `invalid_payload` identifies a matching checksum-valid response whose decoded
-contents were rejected, such as an invalid BCD/calendar date.
+contents were rejected.
 
 Failures are logged at warning level once per reason/message transition, with
 raw protocol bytes, and recovery at info level. No debug logging or UPS
-configuration changes are needed to investigate the unavailable date sensors.
+configuration changes are needed to investigate communication failures.
 
 The user observed raw charge current changing from 0 on battery to 2250 after
 connecting external power. This supports its relationship to charging but does
 not establish the scale or measurement point. Neither the official serial
 reader nor the inspected HID descriptor confirmed milliamp units for this
-serial value. It remains unitless with `unit_status: unverified`; 2.25 A is only
-an unverified interpretation of 2250, not a calibrated measurement.
+serial value. Since 0.5.0, **milliamps are assumed at the user's request**:
+2250 is displayed as 2250 mA (2.25 A). The sensor has current device class and
+measurement state class, with `unit_status: assumed`. This is not a calibrated
+measurement or proof of the current measurement point.
+
+See [USB protocol research](docs/PROTOCOL-RESEARCH.md) for captured date frames,
+the observed charging sequence, read-only HID results and the remaining limits
+of the milliamp hypothesis. An empty next-start frame identical to the query
+does not establish that the alarm is disabled.
 
 ## Requirements
 
@@ -264,7 +269,7 @@ and nonzero to battery. This is not a measured charging-current sensor.
 The decoder accepts longer status payloads and ignores validated unrelated
 commands and request echoes. Invalid checksums do not update entities. Responses
 are bounded by the one-byte length, and transactions have a deadline. Only the
-read commands `0x00`, `0x02`, `0x04`, `0x05` and `0x07` are transmitted. No RTC
+read commands `0x00`, `0x02` and `0x04` are transmitted. No RTC
 write, alarm write, calibration/reset, charge-current configuration,
 acknowledgement, shutdown or power-control commands are sent.
 

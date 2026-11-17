@@ -18,10 +18,8 @@
   "entity": {
     "sensor": {
       "battery": {"name": "Battery"},
-      "charge_current_raw": {"name": "Charge current (raw)"},
-      "ups_version": {"name": "UPS version"},
-      "rtc": {"name": "UPS clock"},
-      "next_start": {"name": "Next scheduled start"}
+      "charge_current_raw": {"name": "Charge current"},
+      "ups_version": {"name": "UPS version"}
     },
     "binary_sensor": {"on_battery": {"name": "On battery"}}
   }
