@@ -69,6 +69,7 @@ async def test_entities_recovery_and_unload(hass):
     with patch("custom_components.argon_ups.coordinator.ArgonUPSClient") as factory:
         client = factory.return_value
         client.query.return_value = UPSStatus(75, False)
+        client.query_diagnostic.side_effect = ArgonUPSError("Optional query unsupported")
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
         assert entry.state is ConfigEntryState.LOADED
@@ -111,6 +112,9 @@ async def test_unchanged_successful_polls_refresh_both_report_timestamps(hass, f
     entry.add_to_hass(hass)
     with patch("custom_components.argon_ups.coordinator.ArgonUPSClient") as factory:
         factory.return_value.query.return_value = UPSStatus(30, True)
+        factory.return_value.query_diagnostic.side_effect = ArgonUPSError(
+            "Optional query unsupported"
+        )
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
         # HA updates last_reported in place for identical states; snapshot the
@@ -118,9 +122,8 @@ async def test_unchanged_successful_polls_refresh_both_report_timestamps(hass, f
         originals = {
             state.entity_id: (state.state, state.last_changed, state.last_reported)
             for state in hass.states.async_all()
-            if state.entity_id.startswith(
-                ("sensor.argon_ups", "binary_sensor.argon_ups")
-            )
+            if state.entity_id
+            in ("sensor.argon_ups_battery", "binary_sensor.argon_ups_on_battery")
         }
         assert len(originals) == 2
         freezer.tick(10)

@@ -31,6 +31,38 @@ poll; the previous values must not be treated as live readings. The serial
 connection closes on failure and the next poll reconnects. Startup failures use
 Home Assistant's automatic setup retry. Unloading releases the port.
 
+### Additional read-only diagnostics (0.4.0)
+
+| Diagnostic sensor | Interpretation |
+| --- | --- |
+| UPS version | Raw version byte returned by command `0x04`; this is not the integration version |
+| UPS clock | RTC date/time from command `0x05`, interpreted as UTC following the official reader |
+| Next scheduled start | Alarm date/time from command `0x07`, interpreted as UTC; not an estimate of remaining battery runtime |
+| Charge current (raw) | Unsigned 16-bit big-endian value from command `0x02`, without a unit because the scale is unverified |
+
+All four are diagnostic entities on the same UPS device. Date sensors are
+displayed in the Home Assistant frontend's timezone. The integration never
+sets the RTC, programs a start time or resets the battery meter. An alarm in
+the past is shown as returned; it does not establish that an upcoming wake is
+armed. All-zero/all-`FF` alarm payloads are shown as unknown, with raw bytes
+retained, because their exact disabled/invalid meaning has not been verified.
+Malformed dates are rejected instead of inventing a timestamp.
+
+One diagnostic is queried after each successful battery/power poll, rotating
+through the four commands. Each diagnostic normally refreshes roughly every
+40 seconds; response delays can lengthen that interval. There is only one
+serial client. Each optional transaction has a bounded timeout, and its failure
+makes only that diagnostic unavailable. A failure of the main status query
+makes all entities unavailable and clears cached diagnostics. Recovery of each
+diagnostic waits for its own next successful query. Unsupported optional
+queries do not force reopening an otherwise healthy serial connection.
+
+**The 0.4.0 changes are published without executing the updated tests at the
+user's request. No physical validation of these additional queries has been
+completed.** Unit/scaling, RTC accuracy/timezone behavior and alarm semantics
+still require confirmation on the actual firmware. The shutdown blueprint
+continues to use only battery percentage and on-battery status.
+
 ## Requirements
 
 - Home Assistant **2026.3 or later**, including support for local integration icons.
@@ -212,8 +244,9 @@ and nonzero to battery. This is not a measured charging-current sensor.
 The decoder accepts longer status payloads and ignores validated unrelated
 commands and request echoes. Invalid checksums do not update entities. Responses
 are bounded by the one-byte length, and transactions have a deadline. Only the
-read-status command is transmitted. No RTC, calibration/reset, charge-current
-configuration, acknowledgement, shutdown or power-control commands are sent.
+read commands `0x00`, `0x02`, `0x04`, `0x05` and `0x07` are transmitted. No RTC
+write, alarm write, calibration/reset, charge-current configuration,
+acknowledgement, shutdown or power-control commands are sent.
 
 ## Limitations and troubleshooting
 
@@ -223,7 +256,7 @@ for HAOS/Supervised with Argon UPS 0.3.0 or newer. Proposed starting values are
 30 seconds. Shutdown is disabled until explicitly armed in its inputs; the
 integration does not install or enable the automation for you.
 
-- No runtime estimate, voltage/current, UPS power-control service, low-battery
+- No runtime estimate, voltage, calibrated current, UPS power-control service, low-battery
   cutoff or RTC controls. Physical shutdown and power recovery remain untested.
 - The 10-second polling interval plus response timeout means this is not an
   instantaneous mains-failure alarm. Do not rely on this experimental integration

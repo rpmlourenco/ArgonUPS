@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0
+
+- Add read-only diagnostic sensors for UPS version, RTC, next scheduled start
+  and raw charge current.
+- Query only one diagnostic per status cycle, using the existing serial
+  connection and querying battery/power status first.
+- Isolate optional-query failures from the battery and on-battery entities.
+- Validate response commands, checksums, BCD fields and calendar dates; retain
+  diagnostic payload bytes as attributes. No configuration commands are sent.
+
+Published without running the updated tests at the user's request. These new
+readouts have not been physically validated on the UPS. Current units/scaling
+and disabled-alarm encoding remain unverified. RTC/alarm dates follow the
+official reader's UTC interpretation.
+
 ## 0.3.0
 
 - Publish every successful poll even when values stay unchanged, allowing

@@ -5,7 +5,16 @@ import time
 
 import serial
 
-from .protocol import STATUS_REQUEST, StatusParser, UPSStatus
+from .protocol import (
+    DIAGNOSTIC_COMMANDS,
+    DiagnosticReading,
+    FrameParser,
+    ReadCommand,
+    UPSStatus,
+    decode_diagnostic,
+    decode_status,
+    read_request,
+)
 
 BAUDRATE = 115200
 RESPONSE_TIMEOUT = 3.0
@@ -25,7 +34,17 @@ class ArgonUPSClient:
         self._lock = threading.Lock()
 
     def query(self) -> UPSStatus:
-        """Send only the read-status command and wait for a verified response."""
+        """Read the critical battery/power status."""
+        return self._query(ReadCommand.STATUS)
+
+    def query_diagnostic(self, command: ReadCommand) -> DiagnosticReading:
+        """Read one optional field, never allowing a write command."""
+        if command not in DIAGNOSTIC_COMMANDS:
+            raise ValueError("Not an allowed diagnostic command")
+        return self._query(ReadCommand(command))
+
+    def _query(self, command: ReadCommand) -> UPSStatus | DiagnosticReading:
+        request = read_request(command)
         with self._lock:
             try:
                 if self._serial is None:
@@ -39,16 +58,31 @@ class ArgonUPSClient:
                 connection = self._serial
                 # Never publish a sample left over from a previous transaction.
                 connection.reset_input_buffer()
-                if connection.write(STATUS_REQUEST) != len(STATUS_REQUEST):
+                if connection.write(request) != len(request):
                     raise ArgonUPSError("Incomplete status request write")
                 deadline = time.monotonic() + RESPONSE_TIMEOUT
-                parser = StatusParser()
+                parser = FrameParser()
                 while time.monotonic() < deadline:
                     data = connection.read(min(connection.in_waiting or 1, 256))
-                    if statuses := parser.feed(data):
-                        return statuses[-1]
-                raise ArgonUPSError("Timed out waiting for a valid UPS status response")
-            except (OSError, serial.SerialException, ArgonUPSError) as err:
+                    for frame in parser.feed(data):
+                        if frame.command != command:
+                            continue
+                        try:
+                            if command == ReadCommand.STATUS:
+                                return decode_status(frame.payload)
+                            return decode_diagnostic(command, frame.payload)
+                        except ValueError:
+                            continue
+                raise ArgonUPSError(
+                    f"Timed out waiting for a valid UPS {command.name} response"
+                )
+            except ArgonUPSError:
+                # An unsupported diagnostic command must not force repeated
+                # port opens/DTR transitions on an otherwise healthy UPS.
+                if command == ReadCommand.STATUS:
+                    self._close_unlocked()
+                raise
+            except (OSError, serial.SerialException) as err:
                 self._close_unlocked()
                 raise ArgonUPSError(str(err)) from err
 
