@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.6.0
+
+- Add optional native Raspberry Pi RTC wake scheduling to the shutdown blueprint.
+- Add a configurable retry interval: 15 minutes by default for testing, with
+  30 minutes proposed for production. Periodic wake defaults off.
+- On HA startup, fresh low-battery operation requires another continuous
+  confirmation before scheduling the next attempt and shutting down again.
+- Add guarded schedule/cancel actions with fixed native RTC access, clock and
+  readback checks, persisted ownership and protection for another app's alarm.
+- Recheck the shutdown guard after scheduling; restored/invalid power data
+  cancels the owned alarm. Alarm setup failure is logged but does not block
+  a confirmed low-battery shutdown.
+- Document manual Pi bootloader preparation, separately imported blueprint
+  updates, startup behavior, battery drain and loss-of-power limitations.
+
+Python/JSON/YAML and diff review only; tests were not run at the user's request.
+Native RTC visibility was inspected read-only. Physical wake remains unverified.
+No EEPROM settings, alarms, HA files or running automations were changed.
+
 ## 0.5.0
 
 - Remove RTC and next scheduled start sensors, decoders and serial queries.

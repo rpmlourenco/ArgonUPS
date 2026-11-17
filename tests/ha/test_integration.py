@@ -69,7 +69,9 @@ async def test_entities_recovery_and_unload(hass):
     with patch("custom_components.argon_ups.coordinator.ArgonUPSClient") as factory:
         client = factory.return_value
         client.query.return_value = UPSStatus(75, False)
-        client.query_diagnostic.side_effect = ArgonUPSError("Optional query unsupported")
+        client.query_diagnostic.side_effect = ArgonUPSError(
+            "Optional query unsupported"
+        )
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
         assert entry.state is ConfigEntryState.LOADED

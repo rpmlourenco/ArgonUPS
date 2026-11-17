@@ -44,7 +44,7 @@ def samples(battery="30", power="on"):
     )
 
 
-def evaluate(states, enabled=True, devices=None):
+def evaluate(states, enabled=True, devices=None, template=GUARD):
     def is_number(value):
         try:
             return math.isfinite(float(value))
@@ -64,7 +64,7 @@ def evaluate(states, enabled=True, devices=None):
             entity_id
         ),
     )
-    result = environment.from_string(GUARD).render(
+    result = environment.from_string(template).render(
         battery_entity=BATTERY,
         on_battery_entity=POWER,
         shutdown_threshold=30,
@@ -136,10 +136,14 @@ def test_explicit_arming_and_action_recheck():
     assert BLUEPRINT["blueprint"]["input"]["max_age_seconds"]["default"] == 30
     assert BLUEPRINT["actions"][0] == {
         "condition": "trigger",
-        "id": "confirmed_low_battery",
+        "id": ["confirmed_low_battery", "retry_startup"],
     }
-    assert BLUEPRINT["actions"][1]["value_template"] == GUARD
-    assert BLUEPRINT["actions"][2] == {"action": "hassio.host_shutdown", "data": {}}
+    assert BLUEPRINT["actions"][2]["value_template"] == GUARD
+    final = BLUEPRINT["actions"][4]
+    assert final["choose"][0]["conditions"][0]["value_template"] == GUARD
+    assert final["choose"][0]["sequence"] == [
+        {"action": "hassio.host_shutdown", "data": {}}
+    ]
     assert BLUEPRINT["triggers"][0]["for"] == {"seconds": "confirmation_seconds"}
     # A final recheck must block both restored mains and stale telemetry.
     states = samples()
@@ -149,3 +153,33 @@ def test_explicit_arming_and_action_recheck():
     states[POWER].state = "on"
     states[BATTERY].last_reported = NOW - timedelta(seconds=31)
     assert not evaluate(states)
+
+
+def test_retry_is_opt_in_and_alarm_failure_does_not_block_data_protection():
+    inputs = BLUEPRINT["blueprint"]["input"]
+    assert inputs["retry_enabled"]["default"] is False
+    assert inputs["retry_minutes"]["default"] == 15
+    startup = BLUEPRINT["actions"][1]["choose"][0]["sequence"]
+    assert startup[0]["value_template"] == "{{ retry_enabled is sameas true }}"
+    assert startup[1]["action"] == "argon_ups.cancel_wake"
+    assert startup[2]["wait_template"] == GUARD
+    assert startup[2]["continue_on_timeout"] is False
+    assert startup[3]["timeout"] == {"seconds": "confirmation_seconds"}
+    assert startup[4]["value_template"] == "{{ not wait.completed }}"
+    schedule = BLUEPRINT["actions"][3]["then"][0]
+    assert schedule["action"] == "argon_ups.schedule_wake"
+    assert schedule["continue_on_error"] is True
+    assert schedule["data"]["retry_minutes"] == "retry_minutes"
+    assert BLUEPRINT["actions"][4]["default"][1]["action"] == "argon_ups.cancel_wake"
+
+
+@pytest.mark.parametrize(
+    "battery,power", [("20", "on"), ("20", "off"), ("unknown", "on"), ("80", "on")]
+)
+def test_startup_confirmation_aborts_on_inverse_safety_guard(battery, power):
+    startup = BLUEPRINT["actions"][1]["choose"][0]["sequence"]
+    invalid = startup[3]["wait_for_trigger"][0]["value_template"]
+    states = samples(battery=battery, power=power)
+    assert evaluate(states, template=invalid) is not evaluate(states)
+    states[BATTERY].last_reported = NOW - timedelta(seconds=31)
+    assert evaluate(states, template=invalid)

@@ -7,9 +7,16 @@ from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
 from .coordinator import ArgonUPSCoordinator
+from .services import async_setup_services
 
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR]
 type ArgonUPSConfigEntry = ConfigEntry[ArgonUPSCoordinator]
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Register explicitly invoked native RTC actions."""
+    await async_setup_services(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ArgonUPSConfigEntry) -> bool:
@@ -25,7 +32,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ArgonUPSConfigEntry) -> 
             )
             if entity_id is not None:
                 registered = registry.async_get(entity_id)
-                if registered is not None and registered.config_entry_id == entry.entry_id:
+                if (
+                    registered is not None
+                    and registered.config_entry_id == entry.entry_id
+                ):
                     registry.async_remove(entity_id)
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     except BaseException:

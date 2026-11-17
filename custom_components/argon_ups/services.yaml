@@ -1,0 +1,65 @@
+schedule_wake:
+  name: Schedule native Pi wake
+  description: >-
+    Arm and verify the Raspberry Pi native RTC before a confirmed low-battery
+    shutdown. Requires prepared Pi bootloader settings. Does not shut down the
+    host, set the UPS clock, or guarantee successful physical wake.
+  fields:
+    battery_entity:
+      required: true
+      selector:
+        entity:
+          filter:
+            - integration: argon_ups
+              domain: sensor
+              device_class: battery
+    on_battery_entity:
+      required: true
+      selector:
+        entity:
+          filter:
+            - integration: argon_ups
+              domain: binary_sensor
+    retry_minutes:
+      required: true
+      selector:
+        number:
+          min: 5
+          max: 1440
+          unit_of_measurement: min
+          mode: box
+    max_age_seconds:
+      default: 30
+      selector:
+        number:
+          min: 15
+          max: 60
+          unit_of_measurement: s
+          mode: box
+    shutdown_threshold:
+      default: 30
+      selector:
+        number:
+          min: 10
+          max: 50
+          unit_of_measurement: "%"
+          mode: box
+cancel_wake:
+  name: Cancel owned native Pi wake
+  description: Cancel only the native RTC alarm owned by Argon UPS, preserving other applications' alarms.
+  fields:
+    battery_entity:
+      required: true
+      selector:
+        entity:
+          filter:
+            - integration: argon_ups
+              domain: sensor
+              device_class: battery
+    on_battery_entity:
+      required: true
+      selector:
+        entity:
+          filter:
+            - integration: argon_ups
+              domain: binary_sensor

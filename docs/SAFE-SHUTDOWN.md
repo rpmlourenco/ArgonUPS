@@ -33,7 +33,8 @@ trigger-ID condition. Do not bypass conditions or manually invoke the service.
 
 ## Required integration version
 
-**Install Argon UPS 0.3.0 or newer before enabling this automation.** Earlier
+**Install Argon UPS 0.6.0 or newer for the current blueprint.** The original
+shutdown-only blueprint requires 0.3.0 or newer. Earlier
 versions suppress entity writes for unchanged status samples. Their
 `last_reported` timestamps can therefore be old during healthy communication,
 making a freshness guard block a necessary shutdown. Version 0.3.0 republishes
@@ -47,7 +48,7 @@ of telemetry, so a real outage combined with USB failure may prevent shutdown.
 
 ## Create and validate the automation
 
-1. Update the integration to 0.3.0 or newer and load that version using Home
+1. Update the integration to 0.6.0 or newer and load that version using Home
    Assistant's normal update procedure. Verify both entities are available.
 2. In **Settings → Automations & scenes → Blueprints → Import blueprint**, use:
 
@@ -90,14 +91,23 @@ Home Assistant's scheduling, so it is not a precise cutoff timer. An initial
 
 ## What is shut down and what happens afterwards
 
-The only service action is `hassio.host_shutdown`. On HAOS/Supervised it shuts
+The shutdown action is `hassio.host_shutdown`. On HAOS/Supervised it shuts
 down the entire host, including its apps. It does not disable UPS output and
 does not power the host on again. A Pi that remains powered by the UPS can stay
 off when mains returns; power recovery must be validated separately for the
-specific Pi/UPS/firmware configuration. No automatic restart is promised.
+specific Pi/UPS/firmware configuration. Optional **periodic Pi wake** can schedule
+the Pi's native RTC before shutdown, then recheck external power after boot.
+It defaults off, with a configurable 15-minute interval (30 minutes proposed
+for production), and requires manual bootloader preparation. It is not an
+immediate mains-return trigger. See [native RTC wake](NATIVE-RTC-WAKE.md) for
+setup, failure behavior and battery-depletion limitations.
 
-No shutdown or production activation was performed while preparing this
-blueprint. It needs validation on the actual installation before use.
+An ordinary shutdown was observed on the user's device on 2026-11-17: 30% at
+22:45:35 Europe/Madrid, action after 30 seconds, Recorder closed normally and
+the next boot reported the data filesystem clean. The user restarted using the
+power button. This does not validate the new periodic wake path, which remains
+untested physically. No shutdown or production activation was performed while
+developing that new path.
 
 References: [Host shutdown](https://www.home-assistant.io/actions/hassio.host_shutdown/),
 [automation triggers](https://www.home-assistant.io/docs/automation/trigger/).

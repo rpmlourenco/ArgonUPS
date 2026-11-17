@@ -7,9 +7,9 @@ A community Home Assistant custom integration for the **Argon PWR UPS 27W
 the Home Assistant UI. No MQTT, add-on, Argon daemon or Raspberry Pi OS packages
 are required.
 
-**Experimental: protocol verified against official source code, with an initial
-live status reading confirmed by the user. Power transitions, physical shutdown
-and power recovery remain untested.**
+**Experimental: protocol checked against official source code, with live status
+and power transitions observed on the user's device. One ordinary low-battery
+shutdown completed cleanly. Automatic wake and power recovery remain unverified.**
 USB enumeration alone does not validate the protocol or serial access from Core.
 This project is not affiliated with or endorsed by Argon40.
 
@@ -276,13 +276,25 @@ acknowledgement, shutdown or power-control commands are sent.
 ## Limitations and troubleshooting
 
 An optional [safe host shutdown blueprint](docs/SAFE-SHUTDOWN.md) is available
-for HAOS/Supervised with Argon UPS 0.3.0 or newer. Proposed starting values are
+for HAOS/Supervised. The current blueprint requires Argon UPS 0.6.0 or newer
+(the original shutdown-only version requires 0.3.0). Proposed starting values are
 30% battery, 30 seconds continuous confirmation, and a maximum telemetry age of
 30 seconds. Shutdown is disabled until explicitly armed in its inputs; the
 integration does not install or enable the automation for you.
 
-- No runtime estimate, voltage, calibrated current, UPS power-control service, low-battery
-  cutoff or RTC controls. Physical shutdown and power recovery remain untested.
+Since 0.6.0, optional [periodic native Pi wake](docs/NATIVE-RTC-WAKE.md) can
+schedule the Raspberry Pi 5's own RTC before shutdown and recheck power after
+boot. Retry defaults off; its interval is configurable, with 15 minutes for
+testing and 30 minutes proposed for production. This needs manual bootloader
+preparation and an updated imported blueprint. No add-on or additional hardware
+is required while the UPS maintains Pi power. Repeated boots consume battery;
+this is not immediate mains-return detection or guaranteed recovery after
+complete battery depletion. The integration never changes the bootloader or
+restarts/shuts down the host by itself; the armed blueprint controls shutdown.
+
+- No runtime estimate, voltage, calibrated current, UPS power-control service,
+  low-battery cutoff or UPS RTC controls. Native Pi wake is separate from the
+  UPS RTC; physical wake and automatic power recovery remain unverified.
 - The 10-second polling interval plus response timeout means this is not an
   instantaneous mains-failure alarm. Do not rely on this experimental integration
   as the sole protection against data loss or power failure.

@@ -37,6 +37,8 @@ async def test_blueprint_expands_to_valid_home_assistant_automation(hass):
     )
     expanded = inputs.async_substitute()
     assert expanded["variables"]["shutdown_enabled"] is False
+    assert expanded["variables"]["retry_enabled"] is False
+    assert expanded["actions"][3]["then"][0]["data"]["retry_minutes"] == 15
     assert expanded["triggers"][0]["for"] == {"seconds": 30}
     validated = await async_validate_config_item(hass, "automation", expanded)
     assert validated is not None
