@@ -63,6 +63,26 @@ completed.** Unit/scaling, RTC accuracy/timezone behavior and alarm semantics
 still require confirmation on the actual firmware. The shutdown blueprint
 continues to use only battery percentage and on-battery status.
 
+Version 0.4.1 exposes `read_command`, `query_status`, `last_query_time` and,
+on failure, `last_error` and up to 512 received bytes in `raw_response`.
+Checksum-valid payloads rejected by the decoder are retained in `raw_payload`.
+These attributes remain available even when the sensor is unavailable. A query
+status of `no_response` means no bytes arrived; `no_matching_valid_response`
+can mean an echo, another command, incomplete framing or a bad checksum;
+`invalid_payload` identifies a matching checksum-valid response whose decoded
+contents were rejected, such as an invalid BCD/calendar date.
+
+Failures are logged at warning level once per reason/message transition, with
+raw protocol bytes, and recovery at info level. No debug logging or UPS
+configuration changes are needed to investigate the unavailable date sensors.
+
+The user observed raw charge current changing from 0 on battery to 2250 after
+connecting external power. This supports its relationship to charging but does
+not establish the scale or measurement point. Neither the official serial
+reader nor the inspected HID descriptor confirmed milliamp units for this
+serial value. It remains unitless with `unit_status: unverified`; 2.25 A is only
+an unverified interpretation of 2250, not a calibrated measurement.
+
 ## Requirements
 
 - Home Assistant **2026.3 or later**, including support for local integration icons.

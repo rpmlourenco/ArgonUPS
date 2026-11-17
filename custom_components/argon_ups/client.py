@@ -24,6 +24,19 @@ READ_TIMEOUT = 0.1
 class ArgonUPSError(Exception):
     """Communication did not produce a valid status sample."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        reason: str = "communication_error",
+        raw_response: bytes = b"",
+        response_payload: bytes | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.reason = reason
+        self.raw_response = raw_response
+        self.response_payload = response_payload
+
 
 class ArgonUPSClient:
     """Keep one serial connection, reopening it after any failed transaction."""
@@ -46,6 +59,9 @@ class ArgonUPSClient:
     def _query(self, command: ReadCommand) -> UPSStatus | DiagnosticReading:
         request = read_request(command)
         with self._lock:
+            received = bytearray()
+            rejected_payload = None
+            rejection = None
             try:
                 if self._serial is None:
                     self._serial = serial.Serial(
@@ -64,17 +80,34 @@ class ArgonUPSClient:
                 parser = FrameParser()
                 while time.monotonic() < deadline:
                     data = connection.read(min(connection.in_waiting or 1, 256))
+                    received.extend(data)
+                    del received[:-512]
                     for frame in parser.feed(data):
                         if frame.command != command:
+                            continue
+                        if not frame.payload:
+                            # A zero-length matching frame is the request echo,
+                            # not evidence of a returned diagnostic value.
                             continue
                         try:
                             if command == ReadCommand.STATUS:
                                 return decode_status(frame.payload)
                             return decode_diagnostic(command, frame.payload)
-                        except ValueError:
+                        except ValueError as err:
+                            rejected_payload = frame.payload
+                            rejection = str(err)
                             continue
+                if rejection is not None:
+                    raise ArgonUPSError(
+                        f"Rejected UPS {command.name} payload: {rejection}",
+                        reason="invalid_payload",
+                        raw_response=bytes(received),
+                        response_payload=rejected_payload,
+                    )
                 raise ArgonUPSError(
-                    f"Timed out waiting for a valid UPS {command.name} response"
+                    f"Timed out waiting for a valid UPS {command.name} response",
+                    reason="no_matching_valid_response" if received else "no_response",
+                    raw_response=bytes(received),
                 )
             except ArgonUPSError:
                 # An unsupported diagnostic command must not force repeated
@@ -84,7 +117,7 @@ class ArgonUPSClient:
                 raise
             except (OSError, serial.SerialException) as err:
                 self._close_unlocked()
-                raise ArgonUPSError(str(err)) from err
+                raise ArgonUPSError(str(err), raw_response=bytes(received)) from err
 
     def close(self) -> None:
         """Close safely, including when a cancelled executor job is still running."""

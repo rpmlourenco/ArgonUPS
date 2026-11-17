@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.1
+
+- Preserve the failure reason, bounded raw response, rejected payload and query
+  time in diagnostic entity attributes, including when the entity is unavailable.
+- Distinguish no response, no matching valid response, invalid payload and
+  serial communication errors without inventing dates or alarm settings.
+- Log optional failures once per error transition and log recovery, without
+  changing log levels or interrupting battery/power polling.
+- Keep raw charge current unitless: an observed change from 0 to 2250 when
+  external power was connected does not by itself establish milliamp units.
+
+Published without running tests at the user's request. No RTC or alarm writes.
+
 ## 0.4.0
 
 - Add read-only diagnostic sensors for UPS version, RTC, next scheduled start

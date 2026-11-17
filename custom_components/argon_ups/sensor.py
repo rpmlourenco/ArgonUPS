@@ -66,9 +66,13 @@ class ArgonUPSDiagnostic(ArgonUPSEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         reading = self.coordinator.readings[self.command]
+        attributes = {
+            "read_command": f"0x{int(self.command):02X}",
+            **self.coordinator.diagnostic_details[self.command],
+        }
         if reading is None:
-            return None
-        attributes = {"raw_payload": reading.payload.hex(" ")}
+            return attributes
+        attributes["raw_payload"] = reading.payload.hex(" ")
         if self.command in (ReadCommand.RTC, ReadCommand.NEXT_START):
             attributes["time_interpretation"] = "UTC following official reader"
             if reading.value is None:
@@ -77,4 +81,5 @@ class ArgonUPSDiagnostic(ArgonUPSEntity, SensorEntity):
             attributes["interpretation"] = (
                 "unsigned 16-bit big-endian; unit and scale unverified"
             )
+            attributes["unit_status"] = "unverified"
         return attributes
